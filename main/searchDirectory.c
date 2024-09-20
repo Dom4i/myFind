@@ -61,7 +61,7 @@ void searchFile(const char *path, const char *filename, int recursive, int case_
                         printf("Datei gefunden!\n");
                         printf("%d: %s: %s\n", getpid(), filename, full_path);
                     }
-                }
+                } 
         }
     }
     // Schließt das Verzeichnis, nachdem alle Einträge gelesen wurden

@@ -10,7 +10,6 @@ int main(int argc, char *argv[]) {
     int recursive_flag = 0;
     int case_insensitive_flag = 0;
     
-    printf("START\n");
 
     parseArguments(argc, argv, &searchpath, filenames, &recursive_flag, &case_insensitive_flag);
     
@@ -19,7 +18,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; filenames[i] != NULL; i++) {
         printf("- %s\n", filenames[i]);
     }
-
+    printf("\n");
     // Durchlaufe die Dateinamen und suche sie
     for (int i = 0; filenames[i] != NULL; i++) {
         if (recursive_flag) {
