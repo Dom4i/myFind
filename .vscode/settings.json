@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "parsearguments.h": "c",
+        "unistd.h": "c"
+    }
+}
