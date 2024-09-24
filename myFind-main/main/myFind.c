@@ -1,98 +1,94 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <errno.h>  // <-- Add this line
+#include <sys/types.h> //für IPC
+#include <sys/ipc.h> //für IPC
+#include <sys/msg.h> //für IPC
+#include <unistd.h> //für fork()
+#include <sys/wait.h> //fürs Warten auf Kindprozesse
+#include <errno.h> //error handling
+
 #include "parseArguments.h"
 #include "searchDirectory.h"
 
-// Struct for message queue
+//Nachrichtenstruktur für message queue:
 struct message {
-    long msg_type;
-    char msg_text[1024];
+    long msg_type; //wird immer auf 1 gesetzt
+    char msg_text[1024]; //höchstens 1024 Zeichen
 };
 
 int main(int argc, char *argv[]) {
     char *searchpath = NULL;
-    char *filenames[100]; // Assumption: Max 100 filenames
+    char *filenames[100]; //maximal 100 Files
     int recursive_flag = 0;
     int case_insensitive_flag = 0;
-    int msgid;  // Message queue ID
+    int msgid; //ID von message queue
     
-    // Creating the message queue
-    msgid = msgget(IPC_PRIVATE, 0666 | IPC_CREAT);
+    //Message queue erstellen:
+    msgid = msgget(IPC_PRIVATE, 0666 | IPC_CREAT); //0666 stellt sicher, dass jeder Lese- und Schreibrechte hat
     if (msgid == -1) {
         perror("msgget");
         exit(EXIT_FAILURE);
     }
 
-    parseArguments(argc, argv, &searchpath, filenames, &recursive_flag, &case_insensitive_flag);
-    
+    parseArguments(argc, argv, &searchpath, filenames, &recursive_flag, &case_insensitive_flag); //ruft getopt auf
+    //Funktion hat keinen Rückgabewert, da alle Argumente pointer sind
+
     printf("Suchpfad: %s\n", searchpath);
     printf("Dateinamen:\n");
-    for (int i = 0; filenames[i] != NULL; i++) {
+    for (int i = 0; filenames[i] != NULL; i++) { //geht alle Dateinamen durch, NULL markiert Ende im Array
         printf("- %s\n", filenames[i]);
     }
     printf("\n");
 
-for (int i = 0; filenames[i] != NULL; i++) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Kindprozess
-        struct message msg;
-        msg.msg_type = 1; // Arbiträrer Nachrichtentyp
+    for (int i = 0; filenames[i] != NULL; i++) { //geht alle zu suchenden Files durch
+        pid_t pid = fork(); //pro File wird ein Kindprozess erstellt
+        if (pid == 0) { //pid == 0 -> Kindprozess
+            struct message msg;
+            msg.msg_type = 1;
 
-        int found = 0; // Flag, um anzuzeigen, ob die Datei gefunden wurde
+            int found = 0; //Speichert, ob Datei gefunden wurde
 
-        // Suche durchführen und Nachricht vorbereiten
-        if (recursive_flag) {
-            searchDirectory(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
-        } else {
-            searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
-        }
+            if (recursive_flag) { //rekursive Suche
+                searchDirectory(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
+            } else { //Suche im aktuallen Verzeichnis
+                searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
+            }
 
-        // Wenn keine Datei gefunden wurde, Nachricht anpassen
-        if (!found) {
-            snprintf(msg.msg_text, sizeof(msg.msg_text), "%d: Datei nicht gefunden! %s\n", getpid(), filenames[i]);
-        }
+            // Wenn keine Datei gefunden wurde, Nachricht anpassen:
+            if (!found) {
+                snprintf(msg.msg_text, sizeof(msg.msg_text), "%d: Datei nicht gefunden! %s\n", getpid(), filenames[i]);
+            }
 
-        // Ergebnis über die Nachrichtenwarteschlange senden
-        if (msgsnd(msgid, &msg, sizeof(msg.msg_text), 0) == -1) {
-            perror("msgsnd");
-        }
-
+            // Ergebnis über die Nachrichtenwarteschlange an Elternprozess senden:
+            if (msgsnd(msgid, &msg, sizeof(msg.msg_text), 0) == -1) {
+                perror("msgsnd");
+            }
         exit(0); // Kindprozess beendet sich
-    } else if (pid < 0) {
-        // Fork fehlgeschlagen
-        perror("fork");
-        exit(EXIT_FAILURE);
+        } else if (pid < 0) { // Fork fehlgeschlagen
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
     }
-}
 
-
-    // Parent process waits for child processes to finish and reads from the message queue
     pid_t pid;
     int status;
 
-    while ((pid = waitpid(-1, &status, 0)) > 0) {
+    while ((pid = waitpid(-1, &status, 0)) > 0) { //Elternprozess wartet auf Kindprozesse
         // Buffer to receive message
         struct message msg;
         if (msgrcv(msgid, &msg, sizeof(msg.msg_text), 1, 0) == -1) {
             perror("msgrcv");
-        } else {
+        } else { //Nachrichten der Kindprozesse werden ausgegeben:
             printf("%s", msg.msg_text);
         }
     }
 
-    if (pid == -1 && errno != ECHILD) {
+    if (pid == -1 && errno != ECHILD) { //wird ausgeführt wenn Fehler (außer kein Kindprozess übrig) auftritt
         perror("waitpid");
     }
 
-    // Remove message queue
+    //message queue wird beendet:
     msgctl(msgid, IPC_RMID, NULL);
 
     return EXIT_SUCCESS;
