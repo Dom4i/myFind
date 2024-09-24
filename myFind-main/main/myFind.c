@@ -39,33 +39,40 @@ int main(int argc, char *argv[]) {
     }
     printf("\n");
 
-    // Fork child process for each filename
-    for (int i = 0; filenames[i] != NULL; i++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            // Child process
-            struct message msg;
-            msg.msg_type = 1; // Arbitrary message type
+for (int i = 0; filenames[i] != NULL; i++) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Kindprozess
+        struct message msg;
+        msg.msg_type = 1; // Arbiträrer Nachrichtentyp
 
-            // Perform search in the directory and prepare the message
-            if (recursive_flag) {
-                searchDirectory(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text));
-            } else {
-                searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text));
-            }
+        int found = 0; // Flag, um anzuzeigen, ob die Datei gefunden wurde
 
-            // Send the result via message queue
-            if (msgsnd(msgid, &msg, sizeof(msg.msg_text), 0) == -1) {
-                perror("msgsnd");
-            }
-
-            exit(0); // Child process exits
-        } else if (pid < 0) {
-            // Fork failed
-            perror("fork");
-            exit(EXIT_FAILURE);
+        // Suche durchführen und Nachricht vorbereiten
+        if (recursive_flag) {
+            searchDirectory(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
+        } else {
+            searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
         }
+
+        // Wenn keine Datei gefunden wurde, Nachricht anpassen
+        if (!found) {
+            snprintf(msg.msg_text, sizeof(msg.msg_text), "%d: Datei nicht gefunden! %s\n", getpid(), filenames[i]);
+        }
+
+        // Ergebnis über die Nachrichtenwarteschlange senden
+        if (msgsnd(msgid, &msg, sizeof(msg.msg_text), 0) == -1) {
+            perror("msgsnd");
+        }
+
+        exit(0); // Kindprozess beendet sich
+    } else if (pid < 0) {
+        // Fork fehlgeschlagen
+        perror("fork");
+        exit(EXIT_FAILURE);
     }
+}
+
 
     // Parent process waits for child processes to finish and reads from the message queue
     pid_t pid;
