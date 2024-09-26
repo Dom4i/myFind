@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <unistd.h>
 
-void searchDirectory(const char *path, const char *filename, int recursive, int case_insensitive, char *msg_buffer, size_t buffer_size, int *found);
 
 // Sucht eine Datei im angegebenen Verzeichnis
 void searchFile(const char *path, const char *filename, int recursive, int case_insensitive, char *msg_buffer, size_t buffer_size, int *found) {
@@ -30,7 +29,7 @@ void searchFile(const char *path, const char *filename, int recursive, int case_
         //wenn es sich um Verzeichnis handelt:
         if (S_ISDIR(file_stat.st_mode)) { //ISDIR prüft, ob es sich um Verzeichnis handelt
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0 && recursive) { //"." und ".." werden ignoriert, damit man nicht in Überordner geht
-                searchDirectory(full_path, filename, recursive, case_insensitive, msg_buffer, buffer_size, found); //neuer Suchaufruf im Unterordner
+                searchFile(full_path, filename, recursive, case_insensitive, msg_buffer, buffer_size, found); //neuer Suchaufruf im Unterordner
             }
         //Ansonsten Datei gefunden:
         } else if (S_ISREG(file_stat.st_mode)) { //ISREG prüft, ob es reguläre Datei ist
@@ -50,7 +49,3 @@ void searchFile(const char *path, const char *filename, int recursive, int case_
     closedir(dir);
 }
 
-// Durchsucht Verzeichnisse rekursiv:
-void searchDirectory(const char *path, const char *filename, int recursive, int case_insensitive, char *msg_buffer, size_t buffer_size, int *found) {
-    searchFile(path, filename, recursive, case_insensitive, msg_buffer, buffer_size, found);
-}

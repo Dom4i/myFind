@@ -48,12 +48,10 @@ int main(int argc, char *argv[]) {
             msg.msg_type = 1;
 
             int found = 0; //Speichert, ob Datei gefunden wurde
+ 
 
-            if (recursive_flag) { //rekursive Suche
-                searchDirectory(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
-            } else { //Suche im aktuallen Verzeichnis
-                searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
-            }
+            searchFile(searchpath, filenames[i], recursive_flag, case_insensitive_flag, msg.msg_text, sizeof(msg.msg_text), &found);
+
 
             // Wenn keine Datei gefunden wurde, Nachricht anpassen:
             if (!found) {
